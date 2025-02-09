@@ -73,9 +73,9 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 035455026177.dkr.ecr.us-east-1.amazonaws.com
-          docker tag my-app:latest 035455026177.dkr.ecr.us-east-1.amazonaws.com/prod-app-repository:latest
-          docker push 035455026177.dkr.ecr.us-east-1.amazonaws.com/prod-app-repository:latest
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 444515292128.dkr.ecr.us-east-1.amazonaws.com
+          docker tag my-app:latest 444515292128.dkr.ecr.us-east-1.amazonaws.com/prod-app-repository:latest
+          docker push 444515292128.dkr.ecr.us-east-1.amazonaws.com/prod-app-repository:latest
 
   deploy:
     runs-on: ubuntu-latest
