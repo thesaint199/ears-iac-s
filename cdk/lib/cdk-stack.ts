@@ -38,7 +38,7 @@ export class ProdAppStack extends cdk.Stack {
     const repository = new ecr.Repository(this, 'ProdAppRepo', {
       repositoryName: 'prod-app-repository',
       imageScanOnPush: true,
-      imageTagMutability: ecr.TagMutability.IMMUTABLE,
+      imageTagMutability: ecr.TagMutability.MUTABLE,
     });
 
     // Create ECS cluster to manage our containers
