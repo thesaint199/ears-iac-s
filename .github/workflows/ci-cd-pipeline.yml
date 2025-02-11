@@ -83,17 +83,37 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: |
-          # Get the cluster name that starts with ProdAppStack
-          CLUSTER_NAME=$(aws ecs list-clusters --output text --query 'clusterArns[?contains(@, `ProdAppStack`)]' | cut -d '/' -f 2)
+          # List all clusters first and store in a variable
+          CLUSTERS=$(aws ecs list-clusters --output json)
+          echo "Available clusters: $CLUSTERS"
+          
+          # Find the ProdAppStack cluster
+          CLUSTER_ARN=$(echo $CLUSTERS | jq -r '.clusterArns[] | select(contains("ProdAppStack"))')
+          CLUSTER_NAME=$(echo $CLUSTER_ARN | awk -F'/' '{print $2}')
+          
+          if [ -z "$CLUSTER_NAME" ]; then
+            echo "Error: No cluster found containing 'ProdAppStack'"
+            exit 1
+          fi
+          
           echo "cluster=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+          echo "Found cluster: $CLUSTER_NAME"
           
-          # Get the service name from the cluster
-          SERVICE_NAME=$(aws ecs list-services --cluster $CLUSTER_NAME --output text --query 'serviceArns[?contains(@, `ProdAppService`)]' | cut -d '/' -f 3)
+          # List services in the cluster
+          SERVICES=$(aws ecs list-services --cluster $CLUSTER_NAME --output json)
+          echo "Available services: $SERVICES"
+          
+          # Find the ProdAppService
+          SERVICE_ARN=$(echo $SERVICES | jq -r '.serviceArns[] | select(contains("ProdAppService"))')
+          SERVICE_NAME=$(echo $SERVICE_ARN | awk -F'/' '{print $3}')
+          
+          if [ -z "$SERVICE_NAME" ]; then
+            echo "Error: No service found containing 'ProdAppService'"
+            exit 1
+          fi
+          
           echo "service=$SERVICE_NAME" >> $GITHUB_OUTPUT
-          
-          # Debug output
-          echo "Found Cluster: $CLUSTER_NAME"
-          echo "Found Service: $SERVICE_NAME"
+          echo "Found service: $SERVICE_NAME"
 
   deploy:
     runs-on: ubuntu-latest
@@ -113,7 +133,12 @@ jobs:
 
       - name: Update ECS Service
         run: |
+          if [ -z "${{ needs.build.outputs.ecs-cluster }}" ] || [ -z "${{ needs.build.outputs.ecs-service }}" ]; then
+            echo "Error: Cluster name or service name is empty"
+            exit 1
+          fi
+          
           aws ecs update-service \
-          --cluster ${{ needs.build.outputs.ecs-cluster }} \
-          --service ${{ needs.build.outputs.ecs-service }} \
-          --force-new-deployment
+            --cluster "${{ needs.build.outputs.ecs-cluster }}" \
+            --service "${{ needs.build.outputs.ecs-service }}" \
+            --force-new-deployment
