@@ -37,9 +37,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: vulnerability-scan
-    outputs:
-      ecs-cluster: ${{ steps.get-ecs-names.outputs.cluster }}
-      ecs-service: ${{ steps.get-ecs-names.outputs.service }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -76,69 +73,29 @@ jobs:
           docker tag my-app:latest 444515292128.dkr.ecr.us-east-1.amazonaws.com/prod-app-repository:latest
           docker push 444515292128.dkr.ecr.us-east-1.amazonaws.com/prod-app-repository:latest
 
-      - name: Get ECS Cluster and Service Names
-        id: get-ecs-names
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-        run: |
-          # List all clusters first and store in a variable
-          CLUSTERS=$(aws ecs list-clusters --output json)
-          echo "Available clusters: $CLUSTERS"
-          
-          # Find the ProdAppStack cluster
-          CLUSTER_ARN=$(echo $CLUSTERS | jq -r '.clusterArns[] | select(contains("ProdAppStack"))')
-          CLUSTER_NAME=$(echo $CLUSTER_ARN | awk -F'/' '{print $2}')
-          
-          if [ -z "$CLUSTER_NAME" ]; then
-            echo "Error: No cluster found containing 'ProdAppStack'"
-            exit 1
-          fi
-          
-          echo "cluster=$CLUSTER_NAME" >> $GITHUB_OUTPUT
-          echo "Found cluster: $CLUSTER_NAME"
-          
-          # List services in the cluster
-          SERVICES=$(aws ecs list-services --cluster $CLUSTER_NAME --output json)
-          echo "Available services: $SERVICES"
-          
-          # Find the ProdAppService
-          SERVICE_ARN=$(echo $SERVICES | jq -r '.serviceArns[] | select(contains("ProdAppService"))')
-          SERVICE_NAME=$(echo $SERVICE_ARN | awk -F'/' '{print $3}')
-          
-          if [ -z "$SERVICE_NAME" ]; then
-            echo "Error: No service found containing 'ProdAppService'"
-            exit 1
-          fi
-          
-          echo "service=$SERVICE_NAME" >> $GITHUB_OUTPUT
-          echo "Found service: $SERVICE_NAME"
-
   deploy:
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-
-      - name: Debug ECS Names
-        run: |
-          echo "Using Cluster: ${{ needs.build.outputs.ecs-cluster }}"
-          echo "Using Service: ${{ needs.build.outputs.ecs-service }}"
-
-      - name: Update ECS Service
-        run: |
-          if [ -z "${{ needs.build.outputs.ecs-cluster }}" ] || [ -z "${{ needs.build.outputs.ecs-service }}" ]; then
-            echo "Error: Cluster name or service name is empty"
-            exit 1
-          fi
           
-          aws ecs update-service \
-            --cluster "${{ needs.build.outputs.ecs-cluster }}" \
-            --service "${{ needs.build.outputs.ecs-service }}" \
-            --force-new-deployment
+      - name: Install CDK dependencies
+        working-directory: cdk
+        run: npm install
+        
+      - name: Deploy with CDK
+        working-directory: cdk
+        run: npm run cdk deploy --require-approval never
