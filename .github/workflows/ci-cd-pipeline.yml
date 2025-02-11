@@ -90,7 +90,9 @@ jobs:
 
       - name: Update ECS Service
         run: |
+          CLUSTER_NAME=$(aws ecs list-clusters | grep -o 'ProdAppStack-ProdEcsCluster[^"]*')
+          SERVICE_NAME=$(aws ecs list-services --cluster $CLUSTER_NAME | grep -o 'ProdAppStack-ProdAppService[^"]*')
           aws ecs update-service \
-            --cluster ProdAppStack-ProdEcsClusterFFF7E144-NRrKCiUcgOBK \
-            --service ProdAppStack-ProdAppService192573C0-ADSOhjesrMrl \
+            --cluster $CLUSTER_NAME \
+            --service $SERVICE_NAME \
             --force-new-deployment
