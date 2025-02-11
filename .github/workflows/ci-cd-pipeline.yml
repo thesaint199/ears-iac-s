@@ -1,5 +1,4 @@
 name: CI/CD Pipeline
-
 on:
   push:
     branches:
@@ -14,7 +13,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
       - name: Run linter
         run: echo "Placeholder Running code linting checks. All checks passed."
 
@@ -24,7 +22,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
       - name: Security Scan
         run: echo "Placeholder Running security scan. No vulnerabilities found."
 
@@ -34,39 +31,41 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
       - name: Vulnerability Scan
         run: echo "Placeholder Running vulnerability scan. No issues found."
 
   build:
     runs-on: ubuntu-latest
     needs: vulnerability-scan
+    outputs:
+      ecs-cluster: ${{ steps.get-ecs-names.outputs.cluster }}
+      ecs-service: ${{ steps.get-ecs-names.outputs.service }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
+      
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 16
-
+      
       - name: Install dependencies
         working-directory: cdk
         run: npm install
-
+      
       - name: Build the application
         working-directory: cdk
         run: npm run build
-
+      
       - name: Run placeholder tests
         run: echo "Running placeholder tests. All tests passed."
-
+      
       - name: Set up Docker
         uses: docker/setup-buildx-action@v1
-
+      
       - name: Build Docker image
         run: docker build -t my-app .
-
+      
       - name: Push Docker image to ECR
         if: success()
         env:
@@ -76,6 +75,25 @@ jobs:
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 444515292128.dkr.ecr.us-east-1.amazonaws.com
           docker tag my-app:latest 444515292128.dkr.ecr.us-east-1.amazonaws.com/prod-app-repository:latest
           docker push 444515292128.dkr.ecr.us-east-1.amazonaws.com/prod-app-repository:latest
+
+      - name: Get ECS Cluster and Service Names
+        id: get-ecs-names
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          # Get the cluster name that starts with ProdAppStack
+          CLUSTER_NAME=$(aws ecs list-clusters --output text --query 'clusterArns[?contains(@, `ProdAppStack`)]' | cut -d '/' -f 2)
+          echo "cluster=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+          
+          # Get the service name from the cluster
+          SERVICE_NAME=$(aws ecs list-services --cluster $CLUSTER_NAME --output text --query 'serviceArns[?contains(@, `ProdAppService`)]' | cut -d '/' -f 3)
+          echo "service=$SERVICE_NAME" >> $GITHUB_OUTPUT
+          
+          # Debug output
+          echo "Found Cluster: $CLUSTER_NAME"
+          echo "Found Service: $SERVICE_NAME"
 
   deploy:
     runs-on: ubuntu-latest
@@ -88,9 +106,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Debug ECS Names
+        run: |
+          echo "Using Cluster: ${{ needs.build.outputs.ecs-cluster }}"
+          echo "Using Service: ${{ needs.build.outputs.ecs-service }}"
+
       - name: Update ECS Service
         run: |
           aws ecs update-service \
-            --cluster ProdAppStack-ProdEcsClusterFFF7E144-NRrKCiUcgOBK \
-            --service ProdAppStack-ProdAppService192573C0-ADSOhjesrMrl \
-            --force-new-deployment
+          --cluster ${{ needs.build.outputs.ecs-cluster }} \
+          --service ${{ needs.build.outputs.ecs-service }} \
+          --force-new-deployment
