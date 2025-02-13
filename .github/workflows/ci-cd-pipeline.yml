@@ -32,7 +32,7 @@ jobs:
      - name: Checkout code
        uses: actions/checkout@v2
      - name: Vulnerability Scan
-       run: echo "Placeholder Running vulnerability scan. No issues found."
+       run: echo "Placeholder Running vulnerability scan. No issues found.."
 
  build:
    runs-on: ubuntu-latest
