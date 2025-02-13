@@ -32,7 +32,7 @@ jobs:
      - name: Checkout code
        uses: actions/checkout@v2
      - name: Vulnerability Scan
-       run: echo "Placeholder Running vulnerability scan. No issues found.."
+       run: echo "Placeholder Running vulnerability scan. No issues found."
 
  build:
    runs-on: ubuntu-latest
@@ -62,12 +62,21 @@ jobs:
      
      - name: Build Docker image
        run: docker build -t my-app .
+
+     - name: Configure AWS credentials
+       uses: aws-actions/configure-aws-credentials@v2
+       with:
+         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+         aws-region: us-east-1
+
+     - name: Create ECR repository if not exists
+       run: |
+         aws ecr describe-repositories --repository-names prod-app-repository || \
+         aws ecr create-repository --repository-name prod-app-repository
      
      - name: Push Docker image to ECR
        if: success()
-       env:
-         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
        run: |
          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 444515292128.dkr.ecr.us-east-1.amazonaws.com
          docker tag my-app:latest 444515292128.dkr.ecr.us-east-1.amazonaws.com/prod-app-repository:latest
