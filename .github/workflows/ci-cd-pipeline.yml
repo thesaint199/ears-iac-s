@@ -44,7 +44,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 20    # Updated to Node.js 20
           
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -74,7 +74,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 20    # Updated to Node.js 20
       
       - name: Install dependencies
         working-directory: cdk
