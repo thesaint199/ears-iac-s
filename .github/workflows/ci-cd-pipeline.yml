@@ -14,7 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Run linter
-        run: echo "Placeholder Running code linting checks. All checks passed."
+        run: echo "Placeholder Running code linting checks. All checks passed"
 
   security-scan:
     runs-on: ubuntu-latest
